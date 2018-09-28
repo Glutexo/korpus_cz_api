@@ -1,0 +1,49 @@
+#!/usr/bin/env ruby
+
+require('json')
+require('mechanize')
+require('uri')
+
+KONTEXT_BASE_URL = URI('https://kontext.korpus.cz')
+
+KONTEXT_RESULT_URL = KONTEXT_BASE_URL.clone
+KONTEXT_RESULT_URL.path = '/first'
+
+agent = Mechanize.new
+
+corpus_query = ARGV[0]
+request_query = {
+  'ctxattrs' => 'word',
+  'attr_vmode' => 'visible',
+  'pagesize' => '40',
+  'viewmode' => 'kwic',
+  'attrs' => 'word',
+  'corpname' => 'syn2015',
+  'attr_allpos' => 'kw',
+  'queryselector' => 'cqlrow',
+  'cql' => corpus_query,
+  'pcq_pos_neg' => 'pos',
+  'default_attr' => 'lemma',
+  'fc_lemword_window_type' => 'both',
+  'fc_lemword_wsize' => '1',
+  'fc_lemword' => '',
+  'fc_lemword_type' => 'all',
+  'fc_pos_window_type' => 'left',
+  'fc_pos_wsize' => '1',
+  'fc_pos_type' => 'all',
+  'shuffle' => '1'
+}
+result_page = agent.get(KONTEXT_RESULT_URL, request_query)
+result_script = result_page.search('/html/body/script').first.children.first.content
+result_lines = result_script.split("\n").map do |line|
+  match_data = line.match(/^__conf\.Lines = (.+);$/)
+  match_data ? match_data[1] : nil
+end.compact.first
+
+JSON.parse(result_lines).each do |line|
+  left = line['Left'].first['str']
+  right = line['Right'].first['str']
+  kw = line['Kwic'].first['str']
+
+  puts("#{left} [#{kw}] #{right}")
+end
